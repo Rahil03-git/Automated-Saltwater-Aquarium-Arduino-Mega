@@ -1,0 +1,162 @@
+// =============================================================================
+//  ORIGINAL FIRMWARE EXCERPT - transcribed from Figures 3 and 4 of the final
+//  project report (October 2024). This is the only part of the original source
+//  that survives. It is kept for reference and is NOT the code in /firmware.
+//
+//  Notes on this excerpt (see docs, section 7.2):
+//   * checkBuzzer() uses "&&" for the temperature and pH tests, so those two
+//     conditions can never be true (only the TDS condition can trigger the buzzer).
+//   * readTDS() is called once per loop (1 s), so the 30-sample buffer fills slowly.
+// =============================================================================
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+// Pin definitions
+#define ONE_WIRE_BUS 2        // Temperature sensor (DS18B20) connected to digital pin 2
+#define phSensorPin A0        // pH sensor connected to analog pin A0
+#define TdsSensorPin A1       // TDS sensor connected to analog pin A1
+#define BuzzerPin A11         // Buzzer connected to analog pin A11
+
+// Constants for TDS sensor calibration
+#define VREF 5.0              // Reference voltage on Arduino (usually 5V)
+#define SCOUNT 30             // Sample count for averaging in TDS sensor
+
+float calibrationOffset = 0.00; // Adjust this based on pH sensor calibration readings
+
+// Setup a oneWire instance for the temperature sensor
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);  // DallasTemperature library for DS18B20
+
+// Variables for pH sensor readings
+float phValue = 0;
+float voltage = 0;
+
+// Variables for TDS sensor readings
+int analogBuffer[SCOUNT];       // Buffer to store analog readings for TDS sensor
+int analogBufferIndex = 0;      // Index for TDS buffer
+float averageVoltage = 0;       // Variable for averaged voltage (TDS)
+float tdsValue = 0;             // Variable for calculated TDS value
+float temperature = 25;         // Default temperature in Celsius (used for TDS calculation)
+
+// pH sensor calibration constants
+float slope = -3.0;  // Adjust this based on actual calibration
+
+void setup() {
+  // Start serial communication
+  Serial.begin(9600);
+
+  // Initialize sensors
+  sensors.begin();                    // Start up the temperature library
+  pinMode(phSensorPin, INPUT);        // Set pH sensor pin as input
+  pinMode(TdsSensorPin, INPUT);       // Set TDS sensor pin as input
+  pinMode(BuzzerPin, OUTPUT);         // Set Buzzer pin as output
+  digitalWrite(BuzzerPin, LOW);       // Initially turn off the buzzer
+}
+
+void loop() {
+  // Read temperature (DS18B20)
+  sensors.requestTemperatures();
+  temperature = sensors.getTempCByIndex(0);  // Get temperature in Celsius
+
+  // Read pH sensor
+  readPH();
+
+  // Read TDS sensor
+  readTDS();
+
+  // Check conditions and activate buzzer if criteria are met
+  checkBuzzer();
+
+  // Display the results in serial monitor
+  displayResults();
+
+  delay(1000);  // Delay for stable readings
+}
+
+// Function to read pH sensor values
+void readPH() {
+  int sensorValue = analogRead(phSensorPin);   // Read analog value from pH sensor
+  voltage = sensorValue * (5.0 / 1024.0);      // Convert analog value to voltage (0-5V)
+
+  // Calculate pH value based on PH-4502C sensor formula
+  // pH = 7 - (voltage - 2.5) / slope
+  phValue = 7 + ((voltage - 2.5) / slope) + calibrationOffset;  // Adjust pH based on calibration
+}
+
+// Function to read TDS sensor values
+void readTDS() {
+  static unsigned long analogSampleTime = millis();  // Store current time for sampling interval
+
+  // Sample the sensor value every 40ms (adjust as needed)
+  if (millis() - analogSampleTime > 40U) {
+    analogSampleTime = millis();
+    analogBuffer[analogBufferIndex] = analogRead(TdsSensorPin);  // Read analog data from TDS sensor
+    analogBufferIndex++;
+
+    // Reset the index if it exceeds the buffer size
+    if (analogBufferIndex == SCOUNT) {
+      analogBufferIndex = 0;
+    }
+  }
+
+  // Calculate the average voltage every second
+  static unsigned long printTime = millis();
+  if (millis() - printTime > 1000U) {
+    printTime = millis();
+    averageVoltage = getAverageVoltage();    // Get averaged voltage from buffer
+    tdsValue = calculateTDS(averageVoltage); // Convert voltage to TDS
+  }
+}
+
+// Function to calculate the average voltage from the TDS buffer
+float getAverageVoltage() {
+  long sum = 0;
+  for (int i = 0; i < SCOUNT; i++) {
+    sum += analogBuffer[i];
+  }
+  float average = (float)sum / SCOUNT;
+  average = average * VREF / 1024.0;  // Convert the ADC value to voltage
+  return average;
+}
+
+// Function to calculate TDS based on voltage and temperature
+float calculateTDS(float voltage) {
+  float compensationCoefficient = 1.0 + 0.02 * (temperature - 25.0);  // Compensation factor for temperature adjustment
+  float compensationVoltage = voltage / compensationCoefficient;
+
+  // TDS calculation based on the TDS sensor's formula
+  float tds = (133.42 * compensationVoltage * compensationVoltage * compensationVoltage -
+               255.86 * compensationVoltage * compensationVoltage +
+               857.39 * compensationVoltage) * 0.5;
+  return tds;  // Return the TDS value in ppm (parts per million)
+}
+
+// Function to display sensor results in the Serial Monitor
+void displayResults() {
+  // Display temperature
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.print((char)176);   // Degree symbol
+  Serial.print("C  |  ");
+  Serial.print((temperature * 9.0) / 5.0 + 32.0);  // Convert to Fahrenheit
+  Serial.print((char)176);
+  Serial.println("F");
+
+  // Display pH value
+  Serial.print("pH Value: ");
+  Serial.println(phValue);
+
+  // Display TDS value
+  Serial.print("TDS Value: ");
+  Serial.print(tdsValue);
+  Serial.println(" ppm");
+}
+
+// Function to check if buzzer should be activated
+void checkBuzzer() {
+  if (((tdsValue <= 300) || (tdsValue >= 400)) || (temperature <= 28 && temperature >= 35) || (phValue <= 6.32 && phValue > 6.8)) {
+    digitalWrite(BuzzerPin, HIGH);  // Turn on the buzzer
+  } else {
+    digitalWrite(BuzzerPin, LOW);   // Turn off the buzzer
+  }
+}
