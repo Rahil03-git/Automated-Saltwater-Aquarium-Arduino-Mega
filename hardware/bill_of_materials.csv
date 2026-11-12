@@ -1,0 +1,20 @@
+Item,Role,Price (BDT),Source
+pH sensor with module (PH-4502C),pH measurement,2100,Final report budget
+Arduino Mega R3,Controller,1600,Final report budget
+TDS sensor,Dissolved solids / water quality,1100,Final report budget
+Waterproof DS18B20 digital thermal probe,Water temperature,120,Final report budget
+Servo motor,Fish feeder,110,Final report budget
+W1209 digital temperature controller,Independent thermostat (wiring not described in the report),100,Final report budget
+Breadboard,Prototyping,80,Final report budget
+Ultrasonic sensor (HC-SR04 type),Water level,70,Final report budget
+Water pump (mini DC),Water top-up,60,Final report budget
+LED,Aquarium lighting,10,Final report budget
+TOTAL (priced items),,5350,Matches the report (5350 taka)
+16x2 LCD with I2C backpack,Display,,Listed as a component in the report; not priced
+Active buzzer,Alert,,Used in the report's code; not priced
+1-channel relay module (5 V),Pump switching,,Visible in the prototype photo; not priced
+Push buttons x3,Manual override,,"Mentioned as optional in the report; not priced"
+4.7 kOhm resistor,DS18B20 pull-up,,Required by the DS18B20; not priced
+Resistor / MOSFET for the LEDs,LED driver,,Not priced
+5 V power supplies,Power,,Not priced
+Aquarium tank + marine animals + food,Habitat,,"Report estimate: total project about 8000 taka"
