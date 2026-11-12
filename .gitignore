@@ -1,0 +1,16 @@
+# Host-test build output
+tests/build/
+
+# Local settings
+*.local.*
+.env
+
+# Arduino / editors
+build/
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.log
